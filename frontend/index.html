@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buy or Wait?</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Buy or Wait?</h1>
+    <p class="muted">Hybrid PostgreSQL + MongoDB affordability decisions with a 90-day in-database forecast</p>
+  </div>
+  <dl class="meta" id="meta" aria-label="System settings"></dl>
+</header>
+
+<nav class="tabs" aria-label="Sections">
+  <a href="#user">User</a><a href="#inbox">Evidence inbox</a><a href="#events">Events</a>
+  <a href="#requests">Requests</a><a href="#decision">Decision</a><a href="#audit">Audit</a><a href="#inside">Inside the database</a>
+</nav>
+
+<main>
+  <p id="toast" role="status" aria-live="polite" class="toast" hidden></p>
+
+  <section id="user" class="panel">
+    <h2>User</h2>
+    <div class="row">
+      <label>Current user <select id="user-select"></select></label>
+      <span id="profile" class="muted"></span>
+    </div>
+    <details>
+      <summary>Register a new user (DFD 1.0)</summary>
+      <form id="register-form" class="grid-form">
+        <label>Name <input name="name" required></label>
+        <label>E-mail <input name="email" type="email" required></label>
+        <label>Base currency <select name="currency" data-currencies></select></label>
+        <label>Minimum balance <input name="min_balance_threshold" type="number" min="0" step="0.01" required value="10000"></label>
+        <label>Target monthly savings <input name="target_monthly_savings" type="number" min="0" step="0.01" required value="5000"></label>
+        <button type="submit">Register</button>
+      </form>
+    </details>
+  </section>
+
+  <section id="inbox" class="panel">
+    <h2>Evidence inbox <small class="muted">MongoDB raw_evidence → extractor → candidate_events → validation gate → PostgreSQL</small></h2>
+    <div class="table-wrap"><table id="evidence-table">
+      <thead><tr><th>Received</th><th>Kind</th><th>Text / OCR</th><th>Status</th><th>Gate</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div id="pipeline" class="pipeline" hidden></div>
+    <form id="evidence-form" class="row">
+      <label>Kind <select name="kind"><option>SMS</option><option>EMAIL</option></select></label>
+      <label class="grow">Message text <input name="raw_text" required maxlength="2000" placeholder="INR 1,200 debited at FreshMart on 18-11-2026."></label>
+      <button type="submit">Add to inbox</button>
+    </form>
+  </section>
+
+  <section id="events" class="panel">
+    <h2>Financial events <small class="muted">V_EVENTS_FULL, precedence resolved by V_EFFECTIVE_EVENTS</small></h2>
+    <div class="table-wrap"><table id="events-table">
+      <thead><tr><th>Family</th><th>Event</th><th>Type</th><th>Category</th><th class="num">Amount</th><th>Date</th><th>Status</th><th>Source</th><th>Forecast</th><th>MongoDB evidence</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <details>
+      <summary>Add a manual event</summary>
+      <form id="event-form" class="grid-form">
+        <label>Type <select name="event_type"><option>EXPENSE</option><option>INCOME</option><option>BILL</option><option>TRANSFER</option><option>INVESTMENT</option></select></label>
+        <label>Category <select name="category" data-categories data-allow-none></select></label>
+        <label>Amount (signed: − out, + in) <input name="amount" type="number" step="0.01" required></label>
+        <label>Currency <select name="currency" data-currencies></select></label>
+        <label>Date <input name="event_date" type="date" required></label>
+        <label>Status <select name="status"><option>CLEARED</option><option>PENDING</option><option>SCHEDULED</option></select></label>
+        <label>Repeats <select name="recurrence_interval"><option value="">Never</option><option>DAILY</option><option>WEEKLY</option><option>MONTHLY</option><option>QUARTERLY</option><option>YEARLY</option></select></label>
+        <label>Description <input name="description" maxlength="200"></label>
+        <button type="submit">Add event</button>
+      </form>
+    </details>
+  </section>
+
+  <section id="requests" class="panel">
+    <h2>Affordability requests</h2>
+    <div class="table-wrap"><table id="requests-table">
+      <thead><tr><th>Request</th><th>Category</th><th class="num">Amount</th><th>Deadline</th><th>Status</th><th>Payment options</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="split">
+      <form id="request-form" class="grid-form">
+        <h3>New request (DFD 6.0)</h3>
+        <label>What is it? <input name="description" maxlength="200" required></label>
+        <label>Amount <input name="requested_amount" type="number" min="0.01" step="0.01" required></label>
+        <label>Category <select name="category_id" data-categories data-ids></select></label>
+        <label>Deadline <input name="target_deadline" type="date"></label>
+        <button type="submit">Submit request</button>
+      </form>
+      <form id="option-form" class="grid-form">
+        <h3>Add payment option (DFD 5.0)</h3>
+        <label>Request <select name="request_id" id="option-request"></select></label>
+        <label>Plan <select name="plan_type"><option>EMI</option><option>BNPL</option><option>FULL</option></select></label>
+        <label>Tenure (months) <input name="tenure_months" type="number" min="0" value="3" required></label>
+        <label>Interest (basis points / year) <input name="interest_rate_bps" type="number" min="0" value="1200" required></label>
+        <label>Processing fee <input name="processing_fee" type="number" min="0" step="0.01" value="199" required></label>
+        <button type="submit">Add option</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="decision" class="panel">
+    <h2>Decision <small class="muted">sp_decide: recursive CTE + window functions inside PostgreSQL</small></h2>
+    <p id="decision-empty" class="muted">Pick a request and press Decide.</p>
+    <div id="decision-body" hidden>
+      <div class="verdict">
+        <span id="d-status" class="badge"></span>
+        <dl class="facts" id="d-facts"></dl>
+      </div>
+      <p id="d-summary"></p>
+      <div class="chart-box"><canvas id="chart" aria-label="90-day projected balance and savings" role="img"></canvas></div>
+      <div class="split">
+        <div><h3>Payment plan</h3><table id="plan-table"><thead><tr><th>#</th><th>Due</th><th class="num">Amount</th></tr></thead><tbody></tbody></table></div>
+        <div><h3>Spending changes</h3><table id="cuts-table"><thead><tr><th>Category</th><th class="num">Reduce by</th><th>Over</th></tr></thead><tbody></tbody></table></div>
+        <div><h3>Versions (bitemporal)</h3><table id="versions-table"><thead><tr><th>Decision</th><th>Status</th><th>Valid from</th><th>Valid to</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="audit" class="panel">
+    <h2>Audit chain <small class="muted">SHA-256 hash chain, no personal data</small></h2>
+    <div class="row"><button id="verify-btn" type="button">Verify chain</button><span id="verify-result" class="muted"></span></div>
+    <div class="table-wrap"><table id="audit-table">
+      <thead><tr><th>Audit</th><th>Decision</th><th>Previous hash</th><th>Current hash</th><th>Tampered?</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section id="inside" class="panel">
+    <h2>Inside the database <small class="muted">EXPLAIN with sequential scans disabled (NFR1)</small></h2>
+    <button id="explain-btn" type="button">Show query plan</button>
+    <pre id="explain-out" class="code" hidden></pre>
+  </section>
+</main>
+</body>
+</html>
