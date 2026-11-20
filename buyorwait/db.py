@@ -17,7 +17,8 @@ _lock = threading.Lock()
 
 
 def pg_connect(url: str) -> psycopg.Connection:
-    return psycopg.connect(url, row_factory=dict_row, autocommit=False)
+    # autocommit: reads never hold a transaction open, so every `with conn.transaction()` is a real BEGIN/COMMIT
+    return psycopg.connect(url, row_factory=dict_row, autocommit=True)
 
 
 def run_sql_file(conn: psycopg.Connection, path: Path) -> None:
