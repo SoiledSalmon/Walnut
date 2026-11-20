@@ -1,0 +1,251 @@
+{
+  "full_payment": {
+    "decision": {
+      "request_id": "request_26",
+      "amount_safe_to_pay": "15656000.00",
+      "affordability_status": "affordable_now",
+      "recommended_payment_method": "full_payment",
+      "payment_plan": "2025-08-03:15656000.00",
+      "earliest_date_for_full_payment": "2025-08-03",
+      "spending_changes_needed": "none",
+      "decision_explanation": "Use full payment totaling IDR 15656000.00; complete by 2025-08-03. The 90-day projected low is IDR 71636780.27 on 2025-08-07, protecting the 24768300.00 minimum. Evidence message_18: confirm salary for event_2318 (IDR 30780000) effective 2025-08-15."
+    },
+    "evidence": {
+      "facts": [
+        {
+          "target_event_id": "event_2318",
+          "operation": "confirm_salary",
+          "source_ids": [
+            "message_18"
+          ],
+          "amount": "30780000",
+          "effective_date": "2025-08-15",
+          "end_date": null,
+          "field_label": "",
+          "justification": "Confirming upcoming salary payment from InvoiceFlow as per message_18."
+        }
+      ]
+    },
+    "tools": [
+      {
+        "turn": 1,
+        "tool": "evaluate_plans",
+        "status": "validation_error",
+        "error": "Amount operation requires amount"
+      },
+      {
+        "turn": 2,
+        "tool": "evaluate_plans",
+        "arguments": {
+          "facts": [
+            {
+              "amount": "30780000",
+              "operation": "confirm_salary",
+              "source_ids": [
+                "message_18"
+              ],
+              "effective_date": "2025-08-15",
+              "target_event_id": "event_2318",
+              "justification": "Confirming upcoming salary payment from InvoiceFlow as per message_18."
+            }
+          ]
+        },
+        "status": "ok"
+      },
+      {
+        "turn": 3,
+        "tool": "finalize_decision",
+        "status": "complete"
+      }
+    ],
+    "selected": {
+      "method": "full_payment",
+      "payments": [
+        {
+          "day": "2025-08-03",
+          "amount": "15656000"
+        }
+      ],
+      "changes": [],
+      "option_id": "",
+      "minimum_balance": "71636780.26690476190476190475",
+      "minimum_date": "2025-08-07"
+    }
+  },
+  "not_recommended": {
+    "decision": {
+      "request_id": "request_28",
+      "amount_safe_to_pay": "270.90",
+      "affordability_status": "not_affordable",
+      "recommended_payment_method": "not_recommended",
+      "payment_plan": "none",
+      "earliest_date_for_full_payment": "",
+      "spending_changes_needed": "none",
+      "decision_explanation": "Do not proceed by 2024-08-15: no eligible complete plan preserves the EUR 1100.00 minimum over 90 days. Today's safe capacity is EUR 270.90. Evidence message_20: confirm salary for event_2507 (EUR 1452) effective 2024-06-15."
+    },
+    "evidence": {
+      "facts": [
+        {
+          "target_event_id": "event_2507",
+          "operation": "confirm_salary",
+          "source_ids": [
+            "message_20"
+          ],
+          "amount": "1452",
+          "effective_date": "2024-06-15",
+          "end_date": null,
+          "field_label": "Next salary payment",
+          "justification": "Employer confirmed next regular salary amount."
+        }
+      ]
+    },
+    "tools": [
+      {
+        "turn": 1,
+        "tool": "evaluate_plans",
+        "status": "validation_error",
+        "error": "Amount operation requires amount"
+      },
+      {
+        "turn": 2,
+        "tool": "evaluate_plans",
+        "arguments": {
+          "facts": [
+            {
+              "justification": "Employer confirmed next regular salary amount.",
+              "amount": "1452",
+              "operation": "confirm_salary",
+              "field_label": "Next salary payment",
+              "effective_date": "2024-06-15",
+              "source_ids": [
+                "message_20"
+              ],
+              "target_event_id": "event_2507"
+            }
+          ]
+        },
+        "status": "ok"
+      },
+      {
+        "turn": 3,
+        "tool": "finalize_decision",
+        "status": "complete"
+      }
+    ],
+    "selected": null
+  },
+  "installments": {
+    "decision": {
+      "request_id": "request_30",
+      "amount_safe_to_pay": "775.20",
+      "affordability_status": "affordable_with_plan",
+      "recommended_payment_method": "installments",
+      "payment_plan": "2026-04-06:268.74|2026-05-06:268.74|2026-06-05:268.74",
+      "earliest_date_for_full_payment": "2026-04-06",
+      "spending_changes_needed": "none",
+      "decision_explanation": "Use installments totaling USD 806.22; complete by 2026-06-05. The 90-day projected low is USD 2588.38 on 2026-06-07, protecting the 900.00 minimum."
+    },
+    "evidence": {
+      "facts": []
+    },
+    "tools": [
+      {
+        "tool": "evaluate_plans",
+        "status": "verified_structured_path"
+      }
+    ],
+    "selected": {
+      "method": "installments",
+      "payments": [
+        {
+          "day": "2026-04-06",
+          "amount": "268.74"
+        },
+        {
+          "day": "2026-05-06",
+          "amount": "268.74"
+        },
+        {
+          "day": "2026-06-05",
+          "amount": "268.74"
+        }
+      ],
+      "changes": [],
+      "option_id": "payment_option_83",
+      "minimum_balance": "2588.379999999999999999999985",
+      "minimum_date": "2026-06-07"
+    }
+  },
+  "wait": {
+    "decision": {
+      "request_id": "request_31",
+      "amount_safe_to_pay": "2678783.85",
+      "affordability_status": "affordable_later",
+      "recommended_payment_method": "wait",
+      "payment_plan": "2024-11-15:18164000.00",
+      "earliest_date_for_full_payment": "2024-11-15",
+      "spending_changes_needed": "none",
+      "decision_explanation": "Use wait totaling IDR 18164000.00; complete by 2024-11-15. The 90-day projected low is IDR 19267683.86 on 2024-09-14, protecting the 16588900.00 minimum."
+    },
+    "evidence": {
+      "facts": []
+    },
+    "tools": [
+      {
+        "tool": "evaluate_plans",
+        "status": "verified_structured_path"
+      }
+    ],
+    "selected": {
+      "method": "wait",
+      "payments": [
+        {
+          "day": "2024-11-15",
+          "amount": "18164000"
+        }
+      ],
+      "changes": [],
+      "option_id": "",
+      "minimum_balance": "19267683.85857142857142857148",
+      "minimum_date": "2024-09-14"
+    }
+  },
+  "partial_payment": {
+    "decision": {
+      "request_id": "request_46",
+      "amount_safe_to_pay": "29764.11",
+      "affordability_status": "affordable_with_plan",
+      "recommended_payment_method": "partial_payment",
+      "payment_plan": "2024-12-03:29764.11|2024-12-15:19685.89",
+      "earliest_date_for_full_payment": "2024-12-15",
+      "spending_changes_needed": "none",
+      "decision_explanation": "Use partial payment totaling INR 49450.00; complete by 2024-12-15. The 90-day projected low is INR 84000.00 on 2024-12-14, protecting the 84000.00 minimum."
+    },
+    "evidence": {
+      "facts": []
+    },
+    "tools": [
+      {
+        "tool": "evaluate_plans",
+        "status": "verified_structured_path"
+      }
+    ],
+    "selected": {
+      "method": "partial_payment",
+      "payments": [
+        {
+          "day": "2024-12-03",
+          "amount": "29764.11"
+        },
+        {
+          "day": "2024-12-15",
+          "amount": "19685.89"
+        }
+      ],
+      "changes": [],
+      "option_id": "",
+      "minimum_balance": "84000.00428571428571428571457",
+      "minimum_date": "2024-12-14"
+    }
+  }
+}
