@@ -1,5 +1,9 @@
-google-genai==2.23.0
-pydantic==2.13.5
-python-dotenv==1.2.3
-pytest==9.1.1
-httpx==0.28.1
+fastapi
+uvicorn
+psycopg[binary]
+pymongo
+pymongo-inmemory
+python-dotenv
+google-genai
+pytest
+httpx
