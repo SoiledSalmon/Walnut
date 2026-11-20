@@ -37,8 +37,19 @@ def _number(token: str) -> Decimal:
     return Decimal(token.replace(',', ''))
 
 
+BALANCE_BEFORE = re.compile(r'\b(?:bal|balance)\b\.?\s*(?:is\s*)?:?\s*$', re.I)
+
+
+def _amount_match(text: str):
+    """First currency amount that is not an 'available balance' figure."""
+    for m in AMOUNT.finditer(text):
+        if not BALANCE_BEFORE.search(text[max(0, m.start() - 20):m.start()]):
+            return m
+    return None
+
+
 def parse_amount(text: str) -> Decimal:
-    m = AMOUNT.search(text)
+    m = _amount_match(text)
     if m:
         return _number(m.group(2))
     m = BARE_AMOUNT.search(text)
@@ -52,11 +63,15 @@ def _money(value: Decimal) -> str:
 
 
 def _date(text: str) -> str | None:
-    m = DMY.search(text)
-    if m:
-        return date(int(m.group(3)), int(m.group(2)), int(m.group(1))).isoformat()
-    m = ISO.search(text)
-    return date(*map(int, m.groups())).isoformat() if m else None
+    # Untrusted text can hold date-shaped numbers that are not dates (e.g. "Ref 12-34-5678"); skip them.
+    candidates = [(int(m.group(3)), int(m.group(2)), int(m.group(1))) for m in DMY.finditer(text)]
+    candidates += [tuple(map(int, m.groups())) for m in ISO.finditer(text)]
+    for y, mo, d in candidates:
+        try:
+            return date(y, mo, d).isoformat()
+        except ValueError:
+            continue
+    return None
 
 
 def _category(merchant: str | None) -> str | None:
@@ -97,7 +112,7 @@ class RuleExtractor:
         if not credit and not DEBIT.search(text) and not receipt:
             return None
         amend = AMEND.search(text)
-        m = AMOUNT.search(text)
+        m = _amount_match(text)
         if amend:
             currency, value, old = _currency(amend.group(3)), _number(amend.group(4)), _number(amend.group(2))
         elif m:

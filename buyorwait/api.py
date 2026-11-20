@@ -125,6 +125,7 @@ def create_app(settings: Settings | None = None, conn_factory=None, mongo=None, 
         text = safe_error(error)
         return JSONResponse({'detail': text}, status_code=404 if 'not found' in text else 422)
 
+    @app.exception_handler(psycopg.errors.DataError)  # e.g. a number too large for NUMERIC(12,2)
     @app.exception_handler(psycopg.errors.IntegrityError)
     @app.exception_handler(psycopg.errors.RaiseException)
     async def db_error(_: Request, error: psycopg.Error):

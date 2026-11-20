@@ -168,3 +168,29 @@ def test_no_event_text_rejected(db):
     r = run(db, 'SMS', 'Your OTP is 123456.')
     assert r['candidate']['validation'] == r['candidate']['validation'] | {'result': 'REJECTED', 'errors': ['no financial event found']}
     assert r['event_id'] is None
+
+
+def test_rate_must_exist_at_forecast_date(db):
+    # fn_forecast_90 converts future flows at the as-of date, so the rate must exist by then too
+    pg, mongo = db
+    eid = add_evidence(mongo, 1, 'EMAIL', 'Payment received: USD 100.00 from Upwork on 12-11-2026.', WHEN)
+    r = process_evidence(pg, mongo, RuleExtractor(), eid, date(2026, 10, 25))
+    assert r['candidate']['validation']['result'] == 'REJECTED'
+    assert any('exchange rate' in e for e in r['candidate']['validation']['errors'])
+
+
+class BadHintExtractor:
+    def extract(self, evidence, image_bytes=None):
+        return {'action': 'CANCEL', 'target_event_id': None, 'confidence': 0.9,
+                'target_hint': {'merchant': 'X', 'event_date': '2026-11-10', 'amount': '₹3,000'},
+                'extracted': {'event_type': 'BILL', 'amount': '-3000.00', 'currency': 'INR', 'event_date': '2026-11-10',
+                              'status': 'SCHEDULED', 'merchant': 'X', 'category': None, 'recurrence_interval': None}}
+
+
+def test_validation_crash_rejects_instead_of_sticking(db):
+    pg, mongo = db
+    eid = add_evidence(mongo, 1, 'SMS', 'anything', WHEN)
+    r = process_evidence(pg, mongo, BadHintExtractor(), eid, AS_OF)
+    assert r['candidate']['validation']['result'] == 'REJECTED'
+    assert r['candidate']['validation']['errors'][0].startswith('validation failed')
+    assert mongo.raw_evidence.find_one({'_id': eid})['status'] == 'REJECTED'

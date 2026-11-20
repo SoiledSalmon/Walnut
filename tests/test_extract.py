@@ -133,3 +133,13 @@ def test_gemini_attack_image_is_sent_as_data():
     _, contents, _ = client.models.calls[0]
     blobs = [p.inline_data.data for p in contents if getattr(p, 'inline_data', None)]
     assert blobs == [image]
+
+
+def test_invalid_date_in_text_falls_back_to_received():
+    c = RX.extract(ev('SMS', 'Ref 12-34-5678: debited Rs.10 at Shop'))
+    assert c['extracted']['event_date'] == '2026-11-20' and c['extracted']['amount'] == '-10.00'
+
+
+def test_available_balance_is_not_the_amount():
+    c = RX.extract(ev('SMS', 'Avl bal INR 41,000. INR 2,000 debited at Spice Route on 08-11-2026'))
+    assert c['extracted']['amount'] == '-2000.00'

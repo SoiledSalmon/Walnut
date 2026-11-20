@@ -118,3 +118,10 @@ def test_frontend_served(client):
 
 def test_frontend_never_served_stale(client):
     assert client.get('/app.js').headers.get('cache-control') == 'no-cache'
+
+
+def test_out_of_range_number_is_422_not_500(client):
+    uid = register(client)
+    r = client.post(f'/api/users/{uid}/requests', json={'requested_amount': '99999999999', 'category_id': 1,
+                                                        'target_deadline': None, 'description': 'yacht'})
+    assert r.status_code == 422

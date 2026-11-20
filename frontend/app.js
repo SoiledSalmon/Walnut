@@ -116,6 +116,7 @@ async function processEvidence(id, button) {
     const r = await api(`/evidence/${id}/process`, null);
     showPipeline(r.evidence, r.candidate, r.event_id);
     const v = r.candidate?.validation;
+    if (!v) { toast('Still being processed (another tab?). Refresh in a moment.'); return; }
     toast(v.result === 'PASSED' ? `Promoted to PostgreSQL as event ${r.event_id}` :
           v.result === 'HELD' ? 'Held for confirmation: ' + v.errors.join('; ') : 'Rejected: ' + v.errors.join('; '), v.result === 'REJECTED');
     await Promise.all([loadEvidence(), loadEvents()]);
@@ -283,7 +284,7 @@ function wire() {
   $('#event-form').addEventListener('submit', (e) => { e.preventDefault(); guarded(e.submitter, async () => {
     const f = formData(e.target);
     const r = await api(`/users/${state.userId}/events`, { ...f, category: f.category || null, recurrence_interval: f.recurrence_interval || null });
-    const v = r.candidate.validation;
+    const v = r.candidate?.validation || { result: 'REJECTED', errors: ['not processed'] };
     toast(v.result === 'PASSED' ? `Event ${r.event_id} added through the gate` : `${v.result}: ${v.errors.join('; ')}`, v.result === 'REJECTED');
     await Promise.all([loadEvents(), loadEvidence()]); }); });
   $('#request-form').addEventListener('submit', (e) => { e.preventDefault(); guarded(e.submitter, async () => {

@@ -90,8 +90,9 @@ def validate(conn, mongo, candidate: dict, user_id: int, as_of: date, source_typ
         errors.append(f'unknown currency {currency!r}')
     elif day and currency != profile['currency'] and not conn.execute(
             'SELECT 1 FROM EXCHANGE_RATES WHERE from_currency=%s AND to_currency=%s AND rate_date<=%s',
-            (currency, profile['currency'], day)).fetchone():
-        errors.append(f'no exchange rate {currency}->{profile["currency"]} on or before {day}')
+            (currency, profile['currency'], min(day, as_of))).fetchone():
+        # fn_forecast_90 converts future flows at the as-of date, so the rate must exist by the earlier of the two
+        errors.append(f'no exchange rate {currency}->{profile["currency"]} on or before {min(day, as_of)}')
     if x.get('event_type') not in EVENT_TYPES:
         errors.append(f'unknown event_type {x.get("event_type")!r}')
     if x.get('recurrence_interval') not in INTERVALS:
@@ -200,6 +201,8 @@ def process_evidence(conn, mongo, extractor, evidence_id: ObjectId, as_of: date)
         return _result(mongo, evidence_id)
     try:
         result, errors, resolved = validate(conn, mongo, doc, evidence['user_id'], as_of, source_type)
+    except Exception as error:  # malformed untrusted values must end REJECTED, never stuck half-processed
+        result, errors, resolved = 'REJECTED', [f'validation failed: {safe_error(error)}'], {}
     finally:
         conn.rollback()  # validation only reads; end its transaction
     mongo.candidate_events.update_one({'_id': doc['_id']}, {'$set': {
