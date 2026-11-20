@@ -1,109 +1,93 @@
 # Buy or Wait?
 
-An AI-powered financial decision agent for the HackerRank Orchestrate hackathon. Given a user's purchase or payment request, it determines whether the user should pay in full, pay partially, use installments, wait, or not proceed — while ensuring the balance never drops below the user's minimum over a 90-day forecast.
+A hybrid SQL–NoSQL database system for safe financial affordability decisions and 90-day cash-flow forecasting.
+DBMS Lab (CD252IA), RV College of Engineering. Team: Ananth G Karanth, Anurag G Kharvi, Manoj Gupta D B.
+
+Given a purchase request, the system answers **Safe Now**, **Split Plan** or **Wait**. It also returns the safe amount to pay
+today, the recommended payment plan, the earliest full-payment date, the 90-day balance and savings trajectory, and
+any discretionary spending cuts. All decision logic runs **inside PostgreSQL**. Every decision is versioned and sealed in
+a SHA-256 hash chain.
 
 ## Architecture
 
-The system uses a **hybrid architecture**: a Gemini LLM interprets unstructured evidence (messages and images), while a deterministic Python engine handles all financial calculations, plan enumeration, and verification. Cases without unstructured evidence bypass the LLM entirely.
-
 ```
-main.py → runner.py → data.py (load & validate)
-                     → agent.py (Gemini evidence loop, 5 bounded tools)
-                     → forecast.py (recurrence inference, 90-day cashflow)
-                     → planner.py (capacity, plan enumeration, ranking)
-                     → verify.py (independent schedule replay)
-                     → store.py (SQLite checkpoints, token accounting)
+Web page (frontend/)  ──JSON──▶  FastAPI service (buyorwait/api.py)
+                                    │
+             ┌──────────────────────┴───────────────────────┐
+             ▼                                              ▼
+ MongoDB (untrusted evidence)                 PostgreSQL (verified facts + all decision logic)
+   raw_evidence     SMS / e-mail / receipt      16 BCNF relations (db/schema.sql)
+   candidate_events extractor output + gate     V_EFFECTIVE_EVENTS  precedence rules
+   GridFS           receipt images              fn_forecast_90      recursive CTE + window functions
+             │                                  sp_decide           ranking, status, plan, cuts, audit
+             └── extractor ─▶ validation gate ─▶ parameterised INSERT (source_doc_id = Mongo _id)
 ```
 
-### Core Modules
-
-| Module | Responsibility |
+| Module | Role (DFD process) |
 |---|---|
-| `data.py` | Typed CSV loading, user/request joins, SHA-256 case fingerprinting |
-| `forecast.py` | Evidence validation, lifecycle reconciliation, recurrence detection, 90-day cashflow construction |
-| `planner.py` | Baseline capacity calculation, exhaustive spending-change combinations (up to 3 streams), payment candidate enumeration and deterministic ranking |
-| `verify.py` | Independent day-by-day balance replay, preference/schedule/amount contract checks |
-| `agent.py` | Bounded Gemini tool loop with 5 allowlisted tools, rate limiting, retries |
-| `store.py` | SQLite checkpointing, resumable runs, token usage accounting |
-| `runner.py` | CLI orchestrator: run, replay, validate, package, check |
+| `buyorwait/extract.py` | NLP/OCR (2.0). `RuleExtractor` works offline. `GeminiExtractor` is used when `EXTRACTOR=gemini`. |
+| `buyorwait/gate.py` | Validation gate and promotion (3.0): type, range, confidence, ownership, duplicates, action mapping. |
+| `buyorwait/services.py` | Users (1.0), options (5.0), requests (6.0), decisions via `sp_decide` (7.0), audit and EXPLAIN (8.0). |
+| `buyorwait/seed.py` | Demo data: the master document's test scenario, run through the real pipeline. |
+| `db/schema.sql`, `db/test_data.sql`, `db/run_tests.sql` | The master document's SQL, unchanged. |
 
-### Key Design Decisions
+## Setup (Windows)
 
-- **Decimal arithmetic everywhere** — Python `Decimal` with 2-decimal-place rounding eliminates IEEE 754 floating-point errors in monetary calculations.
-- **Deterministic fast path** — Cases without messages or images skip the LLM entirely, producing verified results in sub-milliseconds.
-- **Independent verification** — Every decision is replayed through a separate verifier before export, checking balance floor preservation at every day in the 90-day window.
-- **Strict trust boundary** — The LLM cannot modify profile balances, preferences, minimums, or request amounts. Amended amounts must appear in cited evidence.
-- **Certificate-based finalization** — The agent must obtain a cryptographic evaluation certificate from the deterministic engine before finalizing any decision.
+1. Install PostgreSQL (19, tested; 16+ works) with the command line tools. In `psql` as `postgres`, run:
+   ```sql
+   CREATE ROLE buyorwait LOGIN PASSWORD 'choose-one' CREATEDB;
+   CREATE DATABASE buyorwait OWNER buyorwait;
+   ```
+2. Install the Python dependencies (Python 3.11+):
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```
+3. Copy `.env.example` to `.env` and put your password into `POSTGRES_URL` and `TEST_POSTGRES_URL`.
 
-## Setup
+## Run the demo
 
-Python 3.11+ required. Development used Python 3.14.6.
-
-```sh
-python3 -m venv .venv
-# Activate the environment
-python3 -m pip install -r code/requirements.txt
+```powershell
+.venv\Scripts\python.exe main.py
 ```
 
-Set `GEMINI_API_KEY` in the environment or in `code/.env`.
+Open http://127.0.0.1:8000.
 
-## Run
+With `MONGO_URL` empty, the app starts an in-memory MongoDB and **rebuilds both databases with the demo data every time it
+starts**, so the two stores always match. Anything added during a session is lost on restart.
 
-```sh
-# Full evaluation run (250 requests)
-python3 code/main.py
+Suggested walk-through:
+1. **Evidence inbox.** Press *Process* on each item from top to bottom. The pipeline cards show the MongoDB document,
+   the extracted candidate with its gate result, and the PostgreSQL row. The second-to-last SMS (a prompt-injection
+   attempt) is **rejected**. "Paid 450 to Ravi" is **held** for confirmation.
+2. **Events.** Families show the precedence rules: the ledger beats SMS, the duplicate SMS is excluded, the pending
+   credit is excluded, the cancelled bill is excluded, and the amended bill uses ₹3,500.
+3. **Requests.** Decide #1, #2 and #3. You get Safe Now; Split Plan (EMI 3 months: ₹15,649 + ₹15,450 + ₹15,450); and
+   Wait (earliest 30 Dec 2026, cut Dining by ₹2,200 and Shopping by ₹3,000). These are the numbers in Appendix B of the
+   master document. Decide *before* confirming the held ₹450 message, which would change them.
+4. **Re-decide** #2 to see the old version closed (bitemporal).
+5. **Audit.** *Tamper (demo)* on a decision, then *Verify chain*. The edited record is flagged.
+6. **Inside the database.** The EXPLAIN plan shows the `(user_id, event_date)` index scan.
 
-# Other commands
-python3 code/main.py check                              # Validate inputs, no API calls
-python3 code/main.py run --samples --run-id samples      # Run on 25 sample requests
-python3 code/main.py validate --run-id final             # Validate output.csv
-python3 code/main.py replay --run-id final               # Replay saved evidence, no API calls
-python3 code/main.py package --run-id final               # Create code.zip
-python3 -m pytest -c code/pytest.ini code/tests -q       # Run 32 regression tests
-```
+## Settings (`.env`)
 
-On Windows: use `.venv/Scripts/python.exe` instead of `python3`.
-
-## Financial Assumptions
-
-- The opening balance already reflects historical settled events — they inform forecasting but are not replayed.
-- Monthly, semimonthly, and fixed-interval recurrence is inferred from 3+ observations.
-- Pending/scheduled debits are reserved; pending credits and unrealized investments are excluded.
-- Confirmed salary is counted on its settlement date. Final payroll terminates the prior stream.
-- Variable expenses (groceries, transport, dining) use daily reserves at the 75th percentile rate.
-- Variable earned income uses lower-quartile estimates. Bonuses, commissions, and windfalls are excluded from recurring salary.
-- Foreign cash events use the supplied dated exchange rate with Decimal rounding.
-- Capacity rounds down to cents; installment amounts and fees are preserved exactly from offers.
-
-## Model Budget
-
-| Parameter | Value |
+| Key | Meaning |
 |---|---|
-| Models | `gemini-3.1-flash-lite`, `gemini-3.5-flash-lite` |
-| Max turns per case | 4 |
-| Max tool calls per case | 8 |
-| Max API attempts per case | 6 (including 2 transient retries) |
-| Rate limiting | 12 RPM, 200K TPM per model |
-| Daily limit | 450 attempts per model |
+| `POSTGRES_URL` | App database. |
+| `TEST_POSTGRES_URL` | Scratch database for `pytest`. It is dropped and recreated. |
+| `MONGO_URL` | Empty means in-memory MongoDB (demo). Set it, e.g. `mongodb://localhost:27017`, to use a real server, then run `python -m buyorwait.seed --reset` once. |
+| `EXTRACTOR` | `rules` (offline) or `gemini` (live NLP/OCR; needs `GEMINI_API_KEY`). |
+| `AS_OF_DATE` | Decision date. `2026-11-20` reproduces Appendix B. Leave it empty to use today. |
 
-## Test Suite
+**Moving to the practical exam setup** only changes settings. Run MongoDB as a server (or add a `docker-compose.yml`
+with `postgres` and `mongo`), set `MONGO_URL`, seed once, and optionally set `EXTRACTOR=gemini`.
 
-32 regression tests covering: cash flow states, protected spending, financing fees, partial schedules, foreign currency conversion, one-cent boundaries, model-loop caps, cache invalidation, and certificate tampering.
+## Tests
 
-```sh
-python3 -m pytest -c code/pytest.ini code/tests -q
+```powershell
+.venv\Scripts\python.exe -m pytest -q
 ```
 
-## Evaluation Results
-
-Final run: 250/250 requests resolved. 615 API attempts (87 failed/retried), 6,866,898 tokens.
-
-Sample accuracy (25 public examples): safe amount within 1¢: 3/25, status: 18/25, payment method: 19/25, schedule: 18/25, earliest date: 15/25, spending changes: 18/25. See `evaluation/sample_report.json` for details.
-
-## Submission Artifacts
-
-| File | Description |
-|---|---|
-| `code.zip` | Complete runnable solution with `evaluation/usage_report.md` |
-| `output.csv` | 250 validated predictions |
-| `chat_transcript.txt` | Development conversation log |
+- `tests/test_sql.py` reproduces the master document's Appendix B directly on PostgreSQL.
+- `tests/test_flow.py` checks that seed plus live inbox processing reaches the same Appendix B decisions through the gate.
+- Gate, extractor, service and API tests cover the rest.

@@ -130,6 +130,13 @@ def create_app(settings: Settings | None = None, conn_factory=None, mongo=None, 
     async def db_error(_: Request, error: psycopg.Error):
         return JSONResponse({'detail': safe_error(error).splitlines()[0]}, status_code=422)
 
+    @app.middleware('http')
+    async def no_stale_frontend(request: Request, call_next):
+        response = await call_next(request)
+        if not request.url.path.startswith('/api'):
+            response.headers['Cache-Control'] = 'no-cache'  # revalidate via ETag so code updates show on reload
+        return response
+
     api = '/api'
 
     @app.get(api + '/meta')

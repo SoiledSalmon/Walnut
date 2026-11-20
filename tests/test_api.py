@@ -114,3 +114,7 @@ def test_tamper_then_verify(client):
 def test_frontend_served(client):
     r = client.get('/')
     assert r.status_code == 200 and 'text/html' in r.headers['content-type']
+
+
+def test_frontend_never_served_stale(client):
+    assert client.get('/app.js').headers.get('cache-control') == 'no-cache'
