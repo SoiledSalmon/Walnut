@@ -59,9 +59,6 @@ const formData = (form) => Object.fromEntries(new FormData(form).entries());
 async function loadMeta() {
   state.meta = await api('/meta');
   const m = state.meta;
-  $('#meta').replaceChildren(
-    ...[['Decision date', fmtDate(m.as_of)], ['Extractor', m.extractor], ['MongoDB', m.mongo_mode]]
-      .map(([k, v]) => el('div', {}, el('dt', {}, k), el('dd', {}, v))));
   document.querySelectorAll('[data-currencies]').forEach((s) =>
     s.replaceChildren(...m.currencies.map((c) => el('option', { value: c.currency_code }, c.currency_code))));
   document.querySelectorAll('[data-categories]').forEach((s) => s.replaceChildren(
